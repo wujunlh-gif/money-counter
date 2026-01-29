@@ -2,220 +2,222 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Good Taste - 智能现金清点系统</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Good Taste Cash App</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
     <style>
         :root {
-            --bg-dark: #1e293b;
-            --card-bg: #334155;
-            --accent: #10b981; /* 翡翠绿 */
-            --text-light: #f8fafc;
-            --text-gray: #94a3b8;
-            --receipt-paper: #ffffff;
+            --bg: #0f172a;
+            --card-bg: #1e293b;
+            --primary: #10b981; /* 绿色 */
+            --text-main: #f1f5f9;
+            --text-sub: #94a3b8;
         }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
         body {
-            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
-            background-color: var(--bg-dark);
-            color: var(--text-light);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
             margin: 0;
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
+            padding: 0;
+            padding-bottom: 100px; /* 为底部固定栏留出空间 */
         }
 
-        /* 左侧：输入与操作区 */
-        .dashboard {
-            flex: 1;
-            padding: 30px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .header-box {
+        /* 顶部导航 */
+        .navbar {
+            background: var(--card-bg);
+            padding: 15px 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 10px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
         }
-        .brand { font-size: 24px; font-weight: 800; color: var(--accent); letter-spacing: 1px; }
-        
-        .card {
+        .nav-title { font-weight: 800; font-size: 18px; color: var(--primary); letter-spacing: 0.5px; }
+        .nav-time { font-size: 12px; color: var(--text-sub); }
+        .btn-reset { 
+            background: #334155; border: none; color: #cbd5e1; 
+            padding: 6px 12px; border-radius: 6px; font-size: 12px;
+        }
+
+        /* 列表容器 */
+        .container { padding: 15px; max-width: 600px; margin: 0 auto; }
+
+        /* 面额卡片 */
+        .denom-card {
             background: var(--card-bg);
-            border-radius: 16px;
-            padding: 25px;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
-            border: 1px solid #475569;
-        }
-
-        /* 货币输入行 */
-        .money-grid {
-            display: grid;
-            grid-template-columns: 80px 1fr 120px;
-            gap: 15px;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 12px;
+            display: flex;
             align-items: center;
-            margin-bottom: 15px;
+            justify-content: space-between;
+            border: 1px solid #334155;
+            transition: 0.2s;
         }
+        .denom-card:focus-within { border-color: var(--primary); background: #252f40; }
 
-        .denom-label {
-            font-size: 18px;
-            font-weight: bold;
-            color: var(--accent);
-            text-align: right;
-            padding-right: 10px;
-        }
+        .denom-info { flex: 1; }
+        .denom-val { font-size: 20px; font-weight: 900; color: var(--primary); }
+        .denom-sub { font-size: 13px; color: var(--text-sub); margin-top: 4px; font-family: monospace; }
+        .active-sub { color: #fff; font-weight: bold; }
 
-        input[type="number"] {
+        input {
+            width: 100px;
             background: #0f172a;
             border: 2px solid #475569;
             color: white;
             padding: 12px;
             border-radius: 8px;
-            font-size: 18px;
+            font-size: 22px;
             text-align: center;
             font-weight: bold;
-            transition: 0.3s;
+            outline: none;
         }
-        input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2); }
+        input:focus { border-color: var(--primary); }
 
-        .subtotal-display {
-            text-align: right;
-            font-family: monospace;
-            font-size: 18px;
-            color: var(--text-gray);
-        }
-        .active-subtotal { color: #fff; font-weight: bold; }
-
-        /* 总计面板 */
-        .total-panel {
-            background: linear-gradient(135deg, #059669 0%, #047857 100%);
-            border-radius: 12px;
-            padding: 20px;
-            text-align: center;
-            margin-top: 10px;
-            box-shadow: 0 10px 20px rgba(5, 150, 105, 0.3);
-        }
-        .total-label { font-size: 14px; text-transform: uppercase; opacity: 0.8; letter-spacing: 1px; }
-        .total-value { font-size: 42px; font-weight: 900; margin: 5px 0; text-shadow: 0 2px 4px rgba(0,0,0,0.2); }
-
-        /* 按钮区 */
-        .actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 20px; }
-        .btn {
-            padding: 14px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;
-            display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px;
-            transition: transform 0.1s;
-        }
-        .btn:active { transform: scale(0.98); }
-        .btn-img { background: #3b82f6; color: white; } /* 蓝 */
-        .btn-pdf { background: #ef4444; color: white; } /* 红 */
-        .btn-print { background: #f59e0b; color: #fff; } /* 橙 */
-        .btn-reset { background: #64748b; color: white; margin-top: 10px; width: 100%; }
-
-        /* 右侧：预览区 */
-        .preview-stage {
-            width: 420px;
-            background: #0f172a;
-            border-left: 1px solid #334155;
+        /* 底部固定栏 */
+        .bottom-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(30, 41, 59, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 15px 20px;
+            border-top: 1px solid #334155;
             display: flex;
+            justify-content: space-between;
             align-items: center;
-            justify-content: center;
-            padding: 20px;
-            position: relative;
+            z-index: 50;
+        }
+        .total-display { display: flex; flex-direction: column; }
+        .total-label { font-size: 10px; color: var(--text-sub); text-transform: uppercase; }
+        .total-amount { font-size: 24px; font-weight: 900; color: #fff; }
+        
+        .btn-preview {
+            background: var(--primary);
+            color: #000;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 50px;
+            font-weight: bold;
+            font-size: 16px;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
         }
 
-        /* 真实的80mm小票样式 */
+        /* 全屏模态框 (预览小票) */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #000;
+            z-index: 100;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+        .modal-header {
+            padding: 20px;
+            display: flex; justify-content: space-between; align-items: center;
+            color: white;
+        }
+        .btn-close { font-size: 24px; color: white; background: none; border: none; }
+
+        .preview-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            background: #111;
+        }
+
+        /* 80mm 小票样式 */
         #receipt-target {
-            width: 300px; /* 80mm 标准宽度 */
-            background: var(--receipt-paper);
+            width: 300px;
+            background: #fff;
             color: #000;
             padding: 20px;
-            box-sizing: border-box;
-            font-family: 'Courier New', Courier, monospace;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-            transform-origin: center top;
-            min-height: 450px;
+            font-family: 'Courier New', monospace;
+            box-shadow: 0 0 30px rgba(255,255,255,0.1);
         }
-
-        /* 小票内部排版 */
-        .r-logo { text-align: center; font-weight: 900; font-size: 20px; line-height: 1.2; margin-bottom: 5px; text-transform: uppercase; }
-        .r-info { text-align: center; font-size: 12px; color: #444; margin-bottom: 15px; border-bottom: 2px dashed #000; padding-bottom: 10px; }
-        .r-row { display: flex; justify-content: space-between; font-weight: bold; font-size: 16px; margin-bottom: 8px; border-bottom: 1px dotted #ccc; padding-bottom: 2px;}
-        .r-total-section { border-top: 3px solid #000; margin-top: 15px; padding-top: 10px; }
-        .r-total-line { display: flex; justify-content: space-between; font-size: 22px; font-weight: 900; }
-        .r-chinese { font-family: "Microsoft YaHei", sans-serif; font-size: 14px; text-align: right; margin-top: 5px; font-weight: normal; }
-        .r-footer { text-align: center; margin-top: 30px; font-size: 11px; font-weight: bold; }
-
-        /* 打印适配 */
-        @media print {
-            body * { visibility: hidden; }
-            #receipt-target, #receipt-target * { visibility: visible; }
-            #receipt-target {
-                position: absolute; left: 0; top: 0;
-                width: 80mm;
-                margin: 0; padding: 0;
-                box-shadow: none;
-            }
-            @page { margin: 0; size: auto; }
+        .r-logo { text-align: center; font-weight: 900; font-size: 18px; margin-bottom: 5px; }
+        .r-line { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 8px; border-bottom: 1px dotted #ddd; padding-bottom: 4px; font-size: 15px;}
+        .r-total-block { border-top: 3px solid #000; margin-top: 15px; padding-top: 10px; }
+        
+        /* 导出按钮组 */
+        .export-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            width: 300px;
+            margin-top: 30px;
+            margin-bottom: 50px;
         }
+        .btn-exp { padding: 15px; border-radius: 10px; border: none; font-weight: bold; font-size: 16px; color: white; text-align: center;}
+        .bg-blue { background: #3b82f6; }
+        .bg-red { background: #ef4444; }
+
     </style>
 </head>
 <body>
 
-<div class="dashboard">
-    <div class="header-box">
-        <div class="brand">Good Taste <span style="font-size:14px; color:white; opacity:0.5;">Supermarket</span></div>
-        <div style="font-size:12px; color:var(--text-gray);" id="ui-date"></div>
-    </div>
-
-    <div class="card">
-        <div id="inputs-area">
-            </div>
-
-        <div class="total-panel">
-            <div class="total-label">Grand Total (总金额)</div>
-            <div class="total-value" id="ui-total">GYD 0</div>
-        </div>
-
-        <div class="actions">
-            <button class="btn btn-img" onclick="exportImage()">🖼️ 图片</button>
-            <button class="btn btn-pdf" onclick="exportPDF()">📄 PDF</button>
-            <button class="btn btn-print" onclick="window.print()">🖨️ 打印</button>
-        </div>
-        <button class="btn btn-reset" onclick="resetForm()">↺ 清空重置 (Reset)</button>
-    </div>
+<div class="navbar">
+    <div class="nav-title">Good Taste <span style="font-weight:normal; font-size:14px; opacity:0.7">Cash</span></div>
+    <button class="btn-reset" onclick="resetForm()">重置</button>
 </div>
 
-<div class="preview-stage">
-    <div id="receipt-target">
-        <div class="r-logo">GOOD TASTE CHAIN<br>SUPERMARKET</div>
-        <div class="r-info">
-            GUYANA BRANCH<br>
-            CASH COUNT SHEET<br>
-            <span id="r-date"></span>
-        </div>
+<div class="container" id="list-area">
+    </div>
 
-        <div id="r-list">
-            <div style="text-align:center; padding: 40px 0; color:#ccc;">NO DATA</div>
-        </div>
+<div class="bottom-bar">
+    <div class="total-display">
+        <span class="total-label">Grand Total</span>
+        <span class="total-amount" id="bar-total">GYD 0</span>
+    </div>
+    <button class="btn-preview" onclick="showModal()">生成小票 &rarr;</button>
+</div>
 
-        <div class="r-total-section">
-            <div class="r-total-line">
-                <span>TOTAL:</span>
-                <span id="r-final-total">$0</span>
+<div class="modal" id="preview-modal">
+    <div class="modal-header">
+        <span style="font-weight:bold; font-size:18px;">Preview & Export</span>
+        <button class="btn-close" onclick="closeModal()">✕</button>
+    </div>
+
+    <div class="preview-area">
+        <div id="receipt-target">
+            <div class="r-logo">GOOD TASTE CHAIN<br>SUPERMARKET</div>
+            <div style="text-align:center; font-size:12px; border-bottom:2px dashed #000; padding-bottom:10px; margin-bottom:15px;">
+                GUYANA BRANCH<br>
+                <span id="r-date"></span>
             </div>
-            <div class="r-chinese" id="r-chinese-total">总计: GYD 0</div>
+
+            <div id="r-items"></div>
+
+            <div class="r-total-block">
+                <div style="display:flex; justify-content:space-between; font-size:20px; font-weight:900;">
+                    <span>TOTAL:</span>
+                    <span id="r-total">$0</span>
+                </div>
+                <div style="text-align:right; margin-top:5px; font-size:12px;">总计: GYD <span id="r-total-cn">0</span></div>
+            </div>
+
+            <div style="margin-top:30px; text-align:center; font-size:10px; font-weight:bold;">
+                <div style="text-align:left; margin-bottom:20px;">Cashier: ____________</div>
+                <div style="text-align:left;">Manager: ____________</div>
+                <br>*** SYSTEM GENERATED ***
+            </div>
         </div>
 
-        <div class="r-footer">
-            <div style="text-align: left; margin-bottom: 30px;">Cashier: _______________</div>
-            <div style="text-align: left;">Manager: _______________</div>
-            <br>
-            *** SYSTEM GENERATED ***
+        <div class="export-actions">
+            <button class="btn-exp bg-blue" onclick="exportImage()">保存图片</button>
+            <button class="btn-exp bg-red" onclick="exportPDF()">保存 PDF</button>
         </div>
     </div>
 </div>
@@ -224,128 +226,134 @@
     const denoms = [5000, 2000, 1000, 500, 100, 50, 20];
     let counts = {};
 
-    // 初始化 UI
     function init() {
-        const container = document.getElementById('inputs-area');
+        const container = document.getElementById('list-area');
         let html = '';
         denoms.forEach(d => {
             counts[d] = 0;
             html += `
-                <div class="money-grid">
-                    <div class="denom-label">${d}</div>
-                    <input type="number" id="in-${d}" placeholder="0" oninput="calc(${d})" onclick="this.select()">
-                    <div class="subtotal-display" id="sub-${d}">-</div>
+                <div class="denom-card">
+                    <div class="denom-info">
+                        <div class="denom-val">${d}</div>
+                        <div class="denom-sub" id="sub-${d}">-</div>
+                    </div>
+                    <input type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" 
+                           id="in-${d}" oninput="calc(${d})" onfocus="this.select()">
                 </div>
             `;
         });
+        // 底部增加一点空间，防止最后一个被遮挡
+        html += '<div style="height:20px;"></div>'; 
         container.innerHTML = html;
         updateTime();
-        setInterval(updateTime, 60000);
     }
 
-    // 计算逻辑
     function calc(d) {
-        const el = document.getElementById(`in-${d}`);
-        let val = parseInt(el.value);
+        const input = document.getElementById(`in-${d}`);
+        let val = parseInt(input.value);
         if(isNaN(val) || val < 0) val = 0;
         counts[d] = val;
 
+        // 更新单行小计
         const sub = val * d;
         const subEl = document.getElementById(`sub-${d}`);
-        subEl.innerText = sub > 0 ? sub.toLocaleString() : '-';
-        if(sub > 0) subEl.classList.add('active-subtotal');
-        else subEl.classList.remove('active-subtotal');
+        subEl.innerText = sub > 0 ? `GYD ${sub.toLocaleString()}` : '-';
+        if(sub > 0) subEl.classList.add('active-sub');
+        else subEl.classList.remove('active-sub');
 
-        renderReceipt();
+        updateTotal();
     }
 
-    // 渲染小票和总计
-    function renderReceipt() {
+    function updateTotal() {
+        let total = 0;
+        denoms.forEach(d => total += counts[d] * d);
+        document.getElementById('bar-total').innerText = `GYD ${total.toLocaleString()}`;
+    }
+
+    // 模态框逻辑
+    function showModal() {
+        renderReceiptContent();
+        document.getElementById('preview-modal').style.display = 'flex';
+        // 锁定背景滚动
+        document.body.style.overflow = 'hidden'; 
+    }
+
+    function closeModal() {
+        document.getElementById('preview-modal').style.display = 'none';
+        document.body.style.overflow = 'auto';
+    }
+
+    function renderReceiptContent() {
         let total = 0;
         let html = '';
-
         denoms.forEach(d => {
             const sub = counts[d] * d;
             total += sub;
             if(sub > 0) {
                 html += `
-                    <div class="r-row">
+                    <div class="r-line">
                         <span>$${d} x ${counts[d]}</span>
                         <span>${sub.toLocaleString()}</span>
                     </div>
                 `;
             }
         });
+        
+        if(!html) html = '<div style="text-align:center; padding:20px; color:#999">No Cash Entered</div>';
 
-        if(html === '') html = '<div style="text-align:center; padding: 40px 0; color:#999; font-size:12px;">Waiting for input...</div>';
-
-        // 更新 UI
-        document.getElementById('r-list').innerHTML = html;
-        document.getElementById('ui-total').innerText = 'GYD ' + total.toLocaleString();
-        document.getElementById('r-final-total').innerText = '$' + total.toLocaleString();
-        document.getElementById('r-chinese-total').innerText = '总计: GYD ' + total.toLocaleString();
+        document.getElementById('r-items').innerHTML = html;
+        document.getElementById('r-total').innerText = `$${total.toLocaleString()}`;
+        document.getElementById('r-total-cn').innerText = total.toLocaleString();
+        
+        const now = new Date().toLocaleString('en-GB', { hour12: true });
+        document.getElementById('r-date').innerText = now;
     }
 
-    // 重置
     function resetForm() {
-        if(confirm("Clear all data? (清空所有数据?)")) {
+        if(confirm("清空所有数据?")) {
             denoms.forEach(d => {
                 document.getElementById(`in-${d}`).value = '';
                 counts[d] = 0;
                 document.getElementById(`sub-${d}`).innerText = '-';
-                document.getElementById(`sub-${d}`).classList.remove('active-subtotal');
+                document.getElementById(`sub-${d}`).classList.remove('active-sub');
             });
-            renderReceipt();
+            updateTotal();
         }
     }
 
     function updateTime() {
-        const now = new Date().toLocaleString('en-GB', { hour12: true });
-        document.getElementById('ui-date').innerText = now;
-        document.getElementById('r-date').innerText = now;
+        // 简单的时间更新逻辑，实际不需要实时显示在nav上，只要生成小票时准确即可
     }
 
-    // 导出图片功能
+    // 导出功能
     async function exportImage() {
         const element = document.getElementById('receipt-target');
         try {
-            const canvas = await html2canvas(element, { scale: 2, backgroundColor: '#ffffff' });
+            const canvas = await html2canvas(element, { scale: 2 });
             const link = document.createElement('a');
-            link.download = `Cash_Count_${new Date().getTime()}.png`;
+            link.download = `Cash_${Date.now()}.png`;
             link.href = canvas.toDataURL();
             link.click();
-        } catch (err) {
-            alert("Export Image Failed: " + err);
-        }
+        } catch(e) { alert("Error: " + e); }
     }
 
-    // 导出PDF功能
     async function exportPDF() {
         const { jsPDF } = window.jspdf;
         const element = document.getElementById('receipt-target');
-        
         try {
-            // 先转图片以保持样式完美
-            const canvas = await html2canvas(element, { scale: 3, backgroundColor: '#ffffff' });
+            const canvas = await html2canvas(element, { scale: 3 });
             const imgData = canvas.toDataURL('image/jpeg', 1.0);
-            
-            // 创建 PDF (A4纸大小)
             const pdf = new jsPDF('p', 'mm', 'a4');
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            
-            // 计算图片在PDF中的尺寸 (保持比例，宽度设为80mm左右)
+            // 计算居中
+            const pdfW = pdf.internal.pageSize.getWidth();
             const imgProps = pdf.getImageProperties(imgData);
-            const printWidth = 80; 
-            const printHeight = (imgProps.height * printWidth) / imgProps.width;
-            
-            // 居中放置
-            const x = (pdfWidth - printWidth) / 2;
-            
-            pdf.addImage(imgData, 'JPEG', x, 10, printWidth, printHeight);
-            pdf.save(`Cash_Report_${new Date().getTime()}.pdf`);
-        } catch (err) {
-            alert("Export PDF Failed: " + err);
-        }
+            const pWidth = 80; 
+            const pHeight = (imgProps.height * pWidth) / imgProps.width;
+            const x = (pdfW - pWidth) / 2;
+
+            pdf.addImage(imgData, 'JPEG', x, 10, pWidth, pHeight);
+            pdf.save(`Report_${Date.now()}.pdf`);
+        } catch(e) { alert("Error: " + e); }
     }
 
     init();
